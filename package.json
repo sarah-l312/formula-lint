@@ -1,0 +1,13 @@
+{
+  "name": "formula-lint",
+  "version": "0.1.0",
+  "description": "A linter for spreadsheet formula dumps",
+  "type": "module",
+  "bin": {
+    "formula-lint": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT"
+}
