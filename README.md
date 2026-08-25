@@ -62,6 +62,7 @@ one cell reference per line.
 | `division-by-zero`   | a literal `/0` in the formula |
 | `missing-equals`     | a formula that doesn't start with `=` |
 | `malformed-line`     | a line that isn't `<cell>: =<formula>` |
+| `unterminated-string` | a `"` with no matching closing quote |
 
 ## Building
 
@@ -71,7 +72,7 @@ outputs to `dist/`.
 
 ## Status
 
-Early. The lexer and two rules are enough to be useful on real formula
+Early. The lexer and rule set are enough to be useful on real formula
 dumps, but the rule set is intentionally small so far — see the roadmap
 in the project notes for what's next (deprecated functions, unknown
-function names, unterminated strings, structured output).
+function names, structured output).

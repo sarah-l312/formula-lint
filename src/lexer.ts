@@ -17,6 +17,9 @@ export interface Token {
   type: TokenType;
   value: string;
   column: number;
+  // Only meaningful for "string" tokens: false when the lexer ran off the
+  // end of the formula looking for a closing quote.
+  terminated?: boolean;
 }
 
 const OPERATORS = new Set(["+", "-", "*", "/", "^", "&", "=", "<", ">"]);
@@ -60,13 +63,15 @@ export function tokenize(formula: string): Token[] {
       continue;
     }
     if (ch === '"') {
-      // A missing closing quote just runs to the end of the formula. That
-      // case is worth its own rule later; for now the token still carries
-      // an accurate start column, which is what error reporting needs.
+      // A missing closing quote just runs to the end of the formula. The
+      // token still carries an accurate start column and a "terminated"
+      // flag so a rule can flag it without the lexer having to error out.
       let j = i + 1;
       while (j < len && formula[j] !== '"') j++;
-      tokens.push({ type: "string", value: formula.slice(i, j + 1), column });
-      i = j + 1;
+      const terminated = j < len;
+      const end = terminated ? j + 1 : j;
+      tokens.push({ type: "string", value: formula.slice(i, end), column, terminated });
+      i = end;
       continue;
     }
     if (DIGIT.test(ch) || (ch === "." && DIGIT.test(formula[i + 1] ?? ""))) {

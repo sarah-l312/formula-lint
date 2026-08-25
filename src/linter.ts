@@ -12,6 +12,7 @@ export interface Finding {
 const RULES: Array<(tokens: Token[]) => Finding[]> = [
   checkBalancedParens,
   checkDivisionByZero,
+  checkUnterminatedString,
 ];
 
 export function lintFormula(formula: string): Finding[] {
@@ -45,6 +46,23 @@ function checkBalancedParens(tokens: Token[]): Finding[] {
       severity: "error",
       column: unclosed.column,
     });
+  }
+
+  return findings;
+}
+
+function checkUnterminatedString(tokens: Token[]): Finding[] {
+  const findings: Finding[] = [];
+
+  for (const token of tokens) {
+    if (token.type === "string" && token.terminated === false) {
+      findings.push({
+        rule: "unterminated-string",
+        message: "string literal is missing its closing quote",
+        severity: "error",
+        column: token.column,
+      });
+    }
   }
 
   return findings;
