@@ -63,6 +63,7 @@ one cell reference per line.
 | `missing-equals`     | a formula that doesn't start with `=` |
 | `malformed-line`     | a line that isn't `<cell>: =<formula>` |
 | `unterminated-string` | a `"` with no matching closing quote |
+| `unknown-function-name` | a call like `FOO(...)` where `FOO` isn't a recognized function |
 
 ## Building
 
@@ -74,5 +75,5 @@ outputs to `dist/`.
 
 Early. The lexer and rule set are enough to be useful on real formula
 dumps, but the rule set is intentionally small so far — see the roadmap
-in the project notes for what's next (deprecated functions, unknown
-function names, structured output).
+in the project notes for what's next (deprecated functions, structured
+output).
