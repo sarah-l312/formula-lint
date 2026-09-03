@@ -64,6 +64,7 @@ one cell reference per line.
 | `malformed-line`     | a line that isn't `<cell>: =<formula>` |
 | `unterminated-string` | a `"` with no matching closing quote |
 | `unknown-function-name` | a call like `FOO(...)` where `FOO` isn't a recognized function |
+| `deprecated-function` | a call to a function Excel/Sheets kept for compatibility but replaced, e.g. `RANK` → `RANK.EQ` |
 
 ## Building
 
@@ -75,5 +76,5 @@ outputs to `dist/`.
 
 Early. The lexer and rule set are enough to be useful on real formula
 dumps, but the rule set is intentionally small so far — see the roadmap
-in the project notes for what's next (deprecated functions, structured
-output).
+in the project notes for what's next (structured output, tests, a rule
+config file).

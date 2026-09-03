@@ -14,7 +14,51 @@ const RULES: Array<(tokens: Token[]) => Finding[]> = [
   checkDivisionByZero,
   checkUnterminatedString,
   checkUnknownFunctionName,
+  checkDeprecatedFunction,
 ];
+
+// Functions Excel/Sheets kept around for backward compatibility after
+// replacing them with a more precise successor — mostly the 2010
+// statistical-function overhaul that split names into .INC/.EXC or .S/.P
+// variants. They still work, so this is a warning, not an error.
+const DEPRECATED_FUNCTIONS = new Map<string, string>([
+  ["BINOMDIST", "BINOM.DIST"],
+  ["CHIDIST", "CHISQ.DIST.RT"],
+  ["CHIINV", "CHISQ.INV.RT"],
+  ["CHITEST", "CHISQ.TEST"],
+  ["CONCATENATE", "CONCAT"],
+  ["COVAR", "COVARIANCE.P"],
+  ["CRITBINOM", "BINOM.INV"],
+  ["EXPONDIST", "EXPON.DIST"],
+  ["FDIST", "F.DIST.RT"],
+  ["FINV", "F.INV.RT"],
+  ["FTEST", "F.TEST"],
+  ["GAMMADIST", "GAMMA.DIST"],
+  ["GAMMAINV", "GAMMA.INV"],
+  ["HYPGEOMDIST", "HYPGEOM.DIST"],
+  ["LOGINV", "LOGNORM.INV"],
+  ["LOGNORMDIST", "LOGNORM.DIST"],
+  ["MODE", "MODE.SNGL"],
+  ["NEGBINOMDIST", "NEGBINOM.DIST"],
+  ["NORMDIST", "NORM.DIST"],
+  ["NORMINV", "NORM.INV"],
+  ["NORMSDIST", "NORM.S.DIST"],
+  ["NORMSINV", "NORM.S.INV"],
+  ["PERCENTILE", "PERCENTILE.INC"],
+  ["PERCENTRANK", "PERCENTRANK.INC"],
+  ["POISSON", "POISSON.DIST"],
+  ["QUARTILE", "QUARTILE.INC"],
+  ["RANK", "RANK.EQ"],
+  ["STDEV", "STDEV.S"],
+  ["STDEVP", "STDEV.P"],
+  ["TDIST", "T.DIST.2T"],
+  ["TINV", "T.INV.2T"],
+  ["TTEST", "T.TEST"],
+  ["VAR", "VAR.S"],
+  ["VARP", "VAR.P"],
+  ["WEIBULL", "WEIBULL.DIST"],
+  ["ZTEST", "Z.TEST"],
+]);
 
 // Common Excel / Google Sheets functions. Not exhaustive — the goal is to
 // catch typos and made-up names, not to be a complete function reference.
@@ -42,6 +86,7 @@ const KNOWN_FUNCTIONS = new Set([
   "ROWS", "COLUMNS", "TRANSPOSE", "UNIQUE", "SORT", "SORTBY", "FILTER",
   "SEQUENCE", "ARRAYFORMULA",
   "NPV", "IRR", "PMT", "PV", "FV", "RATE", "NPER",
+  ...DEPRECATED_FUNCTIONS.keys(),
 ]);
 
 export function lintFormula(formula: string): Finding[] {
@@ -135,6 +180,32 @@ function checkUnknownFunctionName(tokens: Token[]): Finding[] {
       findings.push({
         rule: "unknown-function-name",
         message: `"${current.value}" is not a recognized function name`,
+        severity: "warning",
+        column: current.column,
+      });
+    }
+  }
+
+  return findings;
+}
+
+// Same identifier-then-"(" shape as checkUnknownFunctionName, but flags
+// names that Excel/Sheets still runs, just replaced by a successor with the
+// same result and better precision or clarity.
+function checkDeprecatedFunction(tokens: Token[]): Finding[] {
+  const findings: Finding[] = [];
+
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const current = tokens[i] as Token;
+    const next = tokens[i + 1] as Token;
+
+    if (current.type !== "ident" || next.type !== "lparen") continue;
+
+    const replacement = DEPRECATED_FUNCTIONS.get(current.value.toUpperCase());
+    if (replacement) {
+      findings.push({
+        rule: "deprecated-function",
+        message: `"${current.value}" is deprecated, use "${replacement}" instead`,
         severity: "warning",
         column: current.column,
       });
