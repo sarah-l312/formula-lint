@@ -11,14 +11,35 @@ interface LineFinding extends Finding {
 }
 
 const SEPARATOR = ": ";
+const FORMATS = new Set(["text", "json"]);
 
-function parseArgs(argv: string[]): string {
-  const path = argv[2];
+interface Args {
+  path: string;
+  format: "text" | "json";
+}
+
+function parseArgs(argv: string[]): Args {
+  let path: string | undefined;
+  let format = "text";
+
+  for (const arg of argv.slice(2)) {
+    if (arg.startsWith("--format=")) {
+      format = arg.slice("--format=".length);
+    } else if (!path) {
+      path = arg;
+    }
+  }
+
   if (!path) {
-    process.stderr.write("usage: formula-lint <file>\n");
+    process.stderr.write("usage: formula-lint <file> [--format=text|json]\n");
     process.exit(1);
   }
-  return path;
+  if (!FORMATS.has(format)) {
+    process.stderr.write(`unknown format "${format}", expected one of: ${[...FORMATS].join(", ")}\n`);
+    process.exit(1);
+  }
+
+  return { path, format: format as Args["format"] };
 }
 
 function lintFile(path: string): LineFinding[] {
@@ -82,10 +103,7 @@ function formatFinding(path: string, finding: LineFinding): string {
   return `${header}\n  ${finding.sourceLine}\n  ${pointer}`;
 }
 
-function main(): void {
-  const path = parseArgs(process.argv);
-  const findings = lintFile(path);
-
+function printText(path: string, findings: LineFinding[]): void {
   if (findings.length === 0) {
     process.stdout.write(`${path}: no issues found\n`);
     return;
@@ -97,7 +115,37 @@ function main(): void {
 
   const errorCount = findings.filter((f) => f.severity === "error").length;
   process.stdout.write(`${findings.length} issue(s), ${errorCount} error(s)\n`);
-  process.exitCode = 1;
+}
+
+function printJson(path: string, findings: LineFinding[]): void {
+  const payload = {
+    path,
+    issueCount: findings.length,
+    errorCount: findings.filter((f) => f.severity === "error").length,
+    findings: findings.map((f) => ({
+      rule: f.rule,
+      message: f.message,
+      severity: f.severity,
+      line: f.line,
+      column: f.column,
+    })),
+  };
+  process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function main(): void {
+  const { path, format } = parseArgs(process.argv);
+  const findings = lintFile(path);
+
+  if (format === "json") {
+    printJson(path, findings);
+  } else {
+    printText(path, findings);
+  }
+
+  if (findings.length > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main();

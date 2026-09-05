@@ -54,6 +54,24 @@ Every finding points at the line and column in the source file, not just
 the formula, so it's a direct jump-to in an editor even when the dump has
 one cell reference per line.
 
+Pass `--format=json` for machine-readable output instead:
+
+```
+node dist/cli.js sheet.txt --format=json
+```
+
+```json
+{
+  "path": "sheet.txt",
+  "issueCount": 2,
+  "errorCount": 2,
+  "findings": [
+    { "rule": "unbalanced-parens", "message": "opening parenthesis is never closed", "severity": "error", "line": 3, "column": 20 },
+    { "rule": "division-by-zero", "message": "division by the literal 0 always produces #DIV/0!", "severity": "error", "line": 4, "column": 8 }
+  ]
+}
+```
+
 ## Rules
 
 | rule                | catches |
@@ -76,5 +94,4 @@ outputs to `dist/`.
 
 Early. The lexer and rule set are enough to be useful on real formula
 dumps, but the rule set is intentionally small so far — see the roadmap
-in the project notes for what's next (structured output, tests, a rule
-config file).
+in the project notes for what's next (tests, a rule config file).
