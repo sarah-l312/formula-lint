@@ -90,8 +90,12 @@ No dependencies to install. Compile with any TypeScript compiler on your
 `PATH` (`tsc`) — the config targets Node's ESM module resolution and
 outputs to `dist/`.
 
+Run the tests with `npm test`, which compiles and then runs `node --test`
+against `dist/`. Tests use Node's built-in test runner, so there's nothing
+extra to install.
+
 ## Status
 
 Early. The lexer and rule set are enough to be useful on real formula
 dumps, but the rule set is intentionally small so far — see the roadmap
-in the project notes for what's next (tests, a rule config file).
+in the project notes for what's next (a rule config file).
