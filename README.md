@@ -84,6 +84,32 @@ node dist/cli.js sheet.txt --format=json
 | `unknown-function-name` | a call like `FOO(...)` where `FOO` isn't a recognized function |
 | `deprecated-function` | a call to a function Excel/Sheets kept for compatibility but replaced, e.g. `RANK` → `RANK.EQ` |
 
+## Configuring rules
+
+Any rule can be turned off with a config file. By default `formula-lint`
+looks for `.formula-lint.json` next to where it's run from; pass a
+different path with `--config=<path>`:
+
+```
+node dist/cli.js sheet.txt --config=lint-config.json
+```
+
+The file is a JSON object with a `rules` key mapping rule names to
+`false` to disable them (any rule not mentioned stays on):
+
+```json
+{
+  "rules": {
+    "unknown-function-name": false,
+    "deprecated-function": false
+  }
+}
+```
+
+An unrecognized rule name, or a value other than `true`/`false`, is
+treated as a mistake worth stopping for — `formula-lint` exits with an
+error instead of silently ignoring it.
+
 ## Building
 
 No dependencies to install. Compile with any TypeScript compiler on your
@@ -97,5 +123,4 @@ extra to install.
 ## Status
 
 Early. The lexer and rule set are enough to be useful on real formula
-dumps, but the rule set is intentionally small so far — see the roadmap
-in the project notes for what's next (a rule config file).
+dumps, but the rule set is intentionally small so far.

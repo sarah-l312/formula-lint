@@ -9,13 +9,24 @@ export interface Finding {
   column: number;
 }
 
-const RULES: Array<(tokens: Token[]) => Finding[]> = [
-  checkBalancedParens,
-  checkDivisionByZero,
-  checkUnterminatedString,
-  checkUnknownFunctionName,
-  checkDeprecatedFunction,
+interface Rule {
+  name: string;
+  check: (tokens: Token[]) => Finding[];
+}
+
+const RULES: Rule[] = [
+  { name: "unbalanced-parens", check: checkBalancedParens },
+  { name: "unterminated-string", check: checkUnterminatedString },
+  { name: "division-by-zero", check: checkDivisionByZero },
+  { name: "unknown-function-name", check: checkUnknownFunctionName },
+  { name: "deprecated-function", check: checkDeprecatedFunction },
 ];
+
+// The rule names a config file's "rules" object may key on for the checks
+// in this module. cli.ts adds its own two structural rule names (malformed
+// lines, missing "=") to this set before validating a config file, since
+// those checks run before a formula body ever reaches lintFormula.
+export const RULE_NAMES: readonly string[] = RULES.map((rule) => rule.name);
 
 // Functions Excel/Sheets kept around for backward compatibility after
 // replacing them with a more precise successor — mostly the 2010
@@ -89,9 +100,14 @@ const KNOWN_FUNCTIONS = new Set([
   ...DEPRECATED_FUNCTIONS.keys(),
 ]);
 
-export function lintFormula(formula: string): Finding[] {
+export interface LintOptions {
+  disabledRules?: ReadonlySet<string>;
+}
+
+export function lintFormula(formula: string, options: LintOptions = {}): Finding[] {
   const tokens = tokenize(formula);
-  return RULES.flatMap((rule) => rule(tokens));
+  const disabled = options.disabledRules;
+  return RULES.filter((rule) => !disabled?.has(rule.name)).flatMap((rule) => rule.check(tokens));
 }
 
 function checkBalancedParens(tokens: Token[]): Finding[] {

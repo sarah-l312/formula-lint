@@ -76,3 +76,20 @@ test("a single formula can trigger findings from more than one rule", () => {
     ["division-by-zero", "unbalanced-parens", "unknown-function-name"].sort(),
   );
 });
+
+test("a disabled rule reports nothing even when it would otherwise fire", () => {
+  const findings = lintFormula("A1/0", { disabledRules: new Set(["division-by-zero"]) });
+  assert.deepEqual(findings, []);
+});
+
+test("disabling one rule leaves the others running", () => {
+  const findings = lintFormula("FOOBAR(A1/0", { disabledRules: new Set(["division-by-zero"]) });
+  assert.deepEqual(
+    [...findings.map((f) => f.rule)].sort(),
+    ["unbalanced-parens", "unknown-function-name"].sort(),
+  );
+});
+
+test("an empty disabledRules set behaves like no options at all", () => {
+  assert.deepEqual(lintFormula("A1/0", { disabledRules: new Set() }), lintFormula("A1/0"));
+});
