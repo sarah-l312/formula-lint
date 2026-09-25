@@ -93,3 +93,41 @@ test("disabling one rule leaves the others running", () => {
 test("an empty disabledRules set behaves like no options at all", () => {
   assert.deepEqual(lintFormula("A1/0", { disabledRules: new Set() }), lintFormula("A1/0"));
 });
+
+test("flags a formula that refers to its own cell", () => {
+  const findings = lintFormula("A2+1", { cellRef: "A2" });
+  assert.deepEqual(rulesFor("A2+1"), []); // no cellRef given, rule can't fire
+  assert.deepEqual(
+    findings.map((f) => f.rule),
+    ["self-reference"],
+  );
+  assert.equal(findings[0]?.column, 1);
+});
+
+test("self-reference is checked case-insensitively", () => {
+  const findings = lintFormula("SUM(a2, B1)", { cellRef: "A2" });
+  assert.deepEqual(
+    findings.map((f) => f.rule),
+    ["self-reference"],
+  );
+});
+
+test("without a cellRef, self-reference never fires", () => {
+  assert.deepEqual(lintFormula("A2+1"), []);
+});
+
+test("a cell name used as a function call is not a self-reference", () => {
+  // contrived, but the shape (ident directly followed by "(") must win
+  assert.deepEqual(lintFormula("A2(1,2)", { cellRef: "A2" }), []);
+});
+
+test("referencing a different cell is not flagged", () => {
+  assert.deepEqual(lintFormula("A1+B1", { cellRef: "A2" }), []);
+});
+
+test("self-reference respects disabledRules", () => {
+  assert.deepEqual(
+    lintFormula("A2+1", { cellRef: "A2", disabledRules: new Set(["self-reference"]) }),
+    [],
+  );
+});

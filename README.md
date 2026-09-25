@@ -83,6 +83,7 @@ node dist/cli.js sheet.txt --format=json
 | `unterminated-string` | a `"` with no matching closing quote |
 | `unknown-function-name` | a call like `FOO(...)` where `FOO` isn't a recognized function |
 | `deprecated-function` | a call to a function Excel/Sheets kept for compatibility but replaced, e.g. `RANK` → `RANK.EQ` |
+| `self-reference` | a formula that refers to its own cell, e.g. `A2: =A2+1` |
 
 ## Configuring rules
 

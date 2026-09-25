@@ -11,7 +11,7 @@ export interface Finding {
 
 interface Rule {
   name: string;
-  check: (tokens: Token[]) => Finding[];
+  check: (tokens: Token[], options: LintOptions) => Finding[];
 }
 
 const RULES: Rule[] = [
@@ -20,6 +20,7 @@ const RULES: Rule[] = [
   { name: "division-by-zero", check: checkDivisionByZero },
   { name: "unknown-function-name", check: checkUnknownFunctionName },
   { name: "deprecated-function", check: checkDeprecatedFunction },
+  { name: "self-reference", check: checkSelfReference },
 ];
 
 // The rule names a config file's "rules" object may key on for the checks
@@ -102,12 +103,16 @@ const KNOWN_FUNCTIONS = new Set([
 
 export interface LintOptions {
   disabledRules?: ReadonlySet<string>;
+  // The cell this formula lives in (e.g. "A2"), used by self-reference.
+  // Left undefined, that rule simply never fires — a caller that doesn't
+  // know the cell (like a standalone formula snippet) isn't penalized.
+  cellRef?: string;
 }
 
 export function lintFormula(formula: string, options: LintOptions = {}): Finding[] {
   const tokens = tokenize(formula);
   const disabled = options.disabledRules;
-  return RULES.filter((rule) => !disabled?.has(rule.name)).flatMap((rule) => rule.check(tokens));
+  return RULES.filter((rule) => !disabled?.has(rule.name)).flatMap((rule) => rule.check(tokens, options));
 }
 
 function checkBalancedParens(tokens: Token[]): Finding[] {
@@ -223,6 +228,34 @@ function checkDeprecatedFunction(tokens: Token[]): Finding[] {
         rule: "deprecated-function",
         message: `"${current.value}" is deprecated, use "${replacement}" instead`,
         severity: "warning",
+        column: current.column,
+      });
+    }
+  }
+
+  return findings;
+}
+
+// A formula that names the very cell it's written in guarantees a circular
+// reference (Excel/Sheets either error immediately or loop forever with
+// iterative calculation on). Only checked when the caller supplies which
+// cell the formula came from; an ident is only a reference here, not a
+// function call, when it isn't immediately followed by "(".
+function checkSelfReference(tokens: Token[], options: LintOptions): Finding[] {
+  const cellRef = options.cellRef;
+  if (!cellRef) return [];
+
+  const findings: Finding[] = [];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const current = tokens[i] as Token;
+    const next = tokens[i + 1];
+
+    if (current.type === "ident" && current.value.toUpperCase() === cellRef.toUpperCase() && next?.type !== "lparen") {
+      findings.push({
+        rule: "self-reference",
+        message: `formula refers to its own cell "${cellRef}", which produces a circular reference`,
+        severity: "error",
         column: current.column,
       });
     }

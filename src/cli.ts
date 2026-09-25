@@ -155,8 +155,9 @@ function lintFile(path: string, disabledRules: ReadonlySet<string>): LineFinding
       return;
     }
 
+    const cellRef = line.slice(0, separatorIndex).trim();
     const body = formula.slice(1);
-    for (const finding of lintFormula(body, { disabledRules })) {
+    for (const finding of lintFormula(body, { disabledRules, cellRef })) {
       findings.push({
         ...finding,
         line: lineNumber,
