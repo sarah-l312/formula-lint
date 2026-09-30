@@ -84,6 +84,7 @@ node dist/cli.js sheet.txt --format=json
 | `unknown-function-name` | a call like `FOO(...)` where `FOO` isn't a recognized function |
 | `deprecated-function` | a call to a function Excel/Sheets kept for compatibility but replaced, e.g. `RANK` → `RANK.EQ` |
 | `self-reference` | a formula that refers to its own cell, e.g. `A2: =A2+1` |
+| `argument-count` | a call with too few or too many arguments for a common function, e.g. `IF(A1)` or `ROUND(A1, 2, 3)` |
 
 ## Configuring rules
 

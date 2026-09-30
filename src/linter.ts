@@ -21,6 +21,7 @@ const RULES: Rule[] = [
   { name: "unknown-function-name", check: checkUnknownFunctionName },
   { name: "deprecated-function", check: checkDeprecatedFunction },
   { name: "self-reference", check: checkSelfReference },
+  { name: "argument-count", check: checkArgumentCount },
 ];
 
 // The rule names a config file's "rules" object may key on for the checks
@@ -99,6 +100,34 @@ const KNOWN_FUNCTIONS = new Set([
   "SEQUENCE", "ARRAYFORMULA",
   "NPV", "IRR", "PMT", "PV", "FV", "RATE", "NPER",
   ...DEPRECATED_FUNCTIONS.keys(),
+]);
+
+// [min, max] argument counts. Where Excel and Sheets disagree on whether an
+// optional argument exists (ROUND, VLOOKUP's range_lookup, ...) the wider
+// range wins, so a formula valid in either product is never flagged.
+// Functions with odd or version-dependent signatures are left out on purpose.
+const MANY = Number.POSITIVE_INFINITY;
+const ARITY = new Map<string, readonly [number, number]>([
+  ["SUM", [1, MANY]], ["AVERAGE", [1, MANY]], ["MIN", [1, MANY]],
+  ["MAX", [1, MANY]], ["COUNT", [1, MANY]], ["COUNTA", [1, MANY]],
+  ["SUMPRODUCT", [1, MANY]], ["AND", [1, MANY]], ["OR", [1, MANY]],
+  ["CHOOSE", [2, MANY]],
+  ["IF", [2, 3]], ["IFERROR", [2, 2]], ["IFNA", [2, 2]], ["NOT", [1, 1]],
+  ["VLOOKUP", [3, 4]], ["HLOOKUP", [3, 4]], ["INDEX", [1, 4]], ["MATCH", [2, 3]],
+  ["COUNTIF", [2, 2]], ["SUMIF", [2, 3]], ["AVERAGEIF", [2, 3]],
+  ["LEN", [1, 1]], ["LEFT", [1, 2]], ["RIGHT", [1, 2]], ["MID", [3, 3]],
+  ["TRIM", [1, 1]], ["UPPER", [1, 1]], ["LOWER", [1, 1]], ["PROPER", [1, 1]],
+  ["SUBSTITUTE", [3, 4]], ["FIND", [2, 3]], ["SEARCH", [2, 3]],
+  ["REPT", [2, 2]], ["EXACT", [2, 2]],
+  ["ROUND", [1, 2]], ["ROUNDUP", [1, 2]], ["ROUNDDOWN", [1, 2]],
+  ["ABS", [1, 1]], ["SIGN", [1, 1]], ["SQRT", [1, 1]], ["INT", [1, 1]],
+  ["EXP", [1, 1]], ["LN", [1, 1]], ["LOG", [1, 2]],
+  ["POWER", [2, 2]], ["MOD", [2, 2]],
+  ["PI", [0, 0]], ["RAND", [0, 0]], ["TODAY", [0, 0]], ["NOW", [0, 0]],
+  ["DATE", [3, 3]], ["DATEDIF", [3, 3]], ["EDATE", [2, 2]], ["EOMONTH", [2, 2]],
+  ["YEAR", [1, 1]], ["MONTH", [1, 1]], ["DAY", [1, 1]],
+  ["ISBLANK", [1, 1]], ["ISNUMBER", [1, 1]], ["ISTEXT", [1, 1]],
+  ["ISERROR", [1, 1]],
 ]);
 
 export interface LintOptions {
@@ -231,6 +260,60 @@ function checkDeprecatedFunction(tokens: Token[]): Finding[] {
         column: current.column,
       });
     }
+  }
+
+  return findings;
+}
+
+// Counts top-level arguments of each call whose name is in ARITY. Empty
+// slots such as IF(A1,,1) count, since spreadsheets treat them as omitted
+// arguments rather than a syntax error. A call whose paren never closes is
+// skipped: unbalanced-parens already reports it and any count would be a guess.
+function checkArgumentCount(tokens: Token[]): Finding[] {
+  const findings: Finding[] = [];
+
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const name = tokens[i] as Token;
+    if (name.type !== "ident" || tokens[i + 1]?.type !== "lparen") continue;
+
+    const range = ARITY.get(name.value.toUpperCase());
+    if (!range) continue;
+
+    let depth = 0;
+    let commas = 0;
+    let closed = false;
+    let empty = false;
+
+    for (let j = i + 1; j < tokens.length; j++) {
+      const token = tokens[j] as Token;
+      if (token.type === "lparen") {
+        depth++;
+      } else if (token.type === "rparen") {
+        depth--;
+        if (depth === 0) {
+          empty = j === i + 2;
+          closed = true;
+          break;
+        }
+      } else if (token.type === "comma" && depth === 1) {
+        commas++;
+      }
+    }
+
+    if (!closed) continue;
+
+    const count = empty ? 0 : commas + 1;
+    const [min, max] = range;
+    if (count >= min && count <= max) continue;
+
+    const expected =
+      min === max ? `${min}` : max === MANY ? `at least ${min}` : `${min} to ${max}`;
+    findings.push({
+      rule: "argument-count",
+      message: `${name.value} expects ${expected} argument(s), got ${count}`,
+      severity: "error",
+      column: name.column,
+    });
   }
 
   return findings;

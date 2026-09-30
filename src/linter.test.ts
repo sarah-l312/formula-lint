@@ -125,6 +125,53 @@ test("referencing a different cell is not flagged", () => {
   assert.deepEqual(lintFormula("A1+B1", { cellRef: "A2" }), []);
 });
 
+test("flags too few arguments and reports the function's column", () => {
+  const findings = lintFormula("1+IF(A1)");
+  assert.deepEqual(findings.map((f) => f.rule), ["argument-count"]);
+  assert.equal(findings[0]?.column, 3);
+  assert.match(findings[0]?.message ?? "", /IF expects 2 to 3 argument\(s\), got 1/);
+});
+
+test("flags too many arguments", () => {
+  assert.deepEqual(rulesFor("ROUND(A1, 2, 3)"), ["argument-count"]);
+});
+
+test("accepts counts inside the allowed range", () => {
+  assert.deepEqual(lintFormula("IF(A1, 1)"), []);
+  assert.deepEqual(lintFormula("IF(A1, 1, 2)"), []);
+  assert.deepEqual(lintFormula("SUM(A1, B1, C1, D1)"), []);
+});
+
+test("commas inside nested calls do not count toward the outer call", () => {
+  assert.deepEqual(lintFormula("IF(A1, MAX(1, 2, 3), MIN(4, 5))"), []);
+});
+
+test("a zero-argument function rejects arguments and accepts none", () => {
+  assert.deepEqual(lintFormula("PI()"), []);
+  assert.deepEqual(rulesFor("PI(1)"), ["argument-count"]);
+});
+
+test("an empty call to a function that needs arguments reports 0", () => {
+  const findings = lintFormula("SUM()");
+  assert.match(findings[0]?.message ?? "", /at least 1 argument\(s\), got 0/);
+});
+
+test("an omitted middle argument still counts", () => {
+  assert.deepEqual(lintFormula("IF(A1,,1)"), []);
+});
+
+test("an unclosed call is left to unbalanced-parens", () => {
+  assert.deepEqual(rulesFor("IF(A1"), ["unbalanced-parens"]);
+});
+
+test("functions outside the arity table are not checked", () => {
+  assert.deepEqual(lintFormula("XLOOKUP(A1)"), []);
+});
+
+test("argument-count respects disabledRules", () => {
+  assert.deepEqual(lintFormula("IF(A1)", { disabledRules: new Set(["argument-count"]) }), []);
+});
+
 test("self-reference respects disabledRules", () => {
   assert.deepEqual(
     lintFormula("A2+1", { cellRef: "A2", disabledRules: new Set(["self-reference"]) }),
